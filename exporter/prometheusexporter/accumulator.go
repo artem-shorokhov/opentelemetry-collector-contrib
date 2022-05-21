@@ -172,10 +172,17 @@ func (a *lastValueAccumulator) accumulateGauge(metric pmetric.Metric, il pcommon
 func (a *lastValueAccumulator) accumulateSum(metric pmetric.Metric, il pcommon.InstrumentationScope, resourceAttrs pcommon.Map, now time.Time) (n int) {
 	doubleSum := metric.Sum()
 
-	// Drop metrics with non-cumulative aggregations
-	if doubleSum.AggregationTemporality() != pmetric.MetricAggregationTemporalityCumulative {
-		return
-	}
+	// // Drop metrics with unspecified aggregations
+	// if doubleSum.AggregationTemporality() == pmetric.MetricAggregationTemporalityUnspecified {
+	// 	a.logger.Info(fmt.Sprintf("line 177, drop metric: %s", metric.Name()))
+	// 	return
+	// }
+
+	// // Drop non-monotonic and non-cumulative metrics
+	// if doubleSum.AggregationTemporality() == pmetric.MetricAggregationTemporalityDelta && !doubleSum.IsMonotonic() {
+	// 	a.logger.Info(fmt.Sprintf("line 183, drop metric: %s", metric.Name()))
+	// 	return
+	// }
 
 	dps := doubleSum.DataPoints()
 	for i := 0; i < dps.Len(); i++ {
@@ -202,6 +209,17 @@ func (a *lastValueAccumulator) accumulateSum(metric pmetric.Metric, il pcommon.I
 		if ip.Timestamp().AsTime().Before(mv.value.Sum().DataPoints().At(0).Timestamp().AsTime()) {
 			// only keep datapoint with latest timestamp
 			continue
+		}
+
+		// Delta-to-Cumulative
+		if doubleSum.AggregationTemporality() == pmetric.MetricAggregationTemporalityDelta && ip.StartTimestamp() == mv.value.Sum().DataPoints().At(0).StartTimestamp() {
+			ip.SetStartTimestamp(mv.value.Sum().DataPoints().At(0).StartTimestamp())
+			switch ip.ValueType() {
+			case pmetric.NumberDataPointValueTypeInt:
+				ip.SetIntVal(ip.IntVal() + mv.value.Sum().DataPoints().At(0).IntVal())
+			case pmetric.NumberDataPointValueTypeDouble:
+				ip.SetDoubleVal(ip.DoubleVal() + mv.value.Sum().DataPoints().At(0).DoubleVal())
+			}
 		}
 
 		m := createMetric(metric)
