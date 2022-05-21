@@ -87,6 +87,7 @@ func (a *lastValueAccumulator) Accumulate(rm pmetric.ResourceMetrics) (n int) {
 func (a *lastValueAccumulator) addMetric(metric pmetric.Metric, il pcommon.InstrumentationScope, resourceAttrs pcommon.Map, now time.Time) int {
 	a.logger.Debug(fmt.Sprintf("accumulating metric: %s", metric.Name()))
 
+	a.logger.Info(fmt.Sprintf("processing metric: %s", metric.Name()))
 	switch metric.DataType() {
 	case pmetric.MetricDataTypeGauge:
 		return a.accumulateGauge(metric, il, resourceAttrs, now)
@@ -107,6 +108,7 @@ func (a *lastValueAccumulator) addMetric(metric pmetric.Metric, il pcommon.Instr
 }
 
 func (a *lastValueAccumulator) accumulateSummary(metric pmetric.Metric, il pcommon.InstrumentationScope, resourceAttrs pcommon.Map, now time.Time) (n int) {
+	a.logger.Info(fmt.Sprintf("accumulateSummary: %s", metric.Name()))
 	dps := metric.Summary().DataPoints()
 	for i := 0; i < dps.Len(); i++ {
 		ip := dps.At(i)
@@ -136,6 +138,7 @@ func (a *lastValueAccumulator) accumulateSummary(metric pmetric.Metric, il pcomm
 }
 
 func (a *lastValueAccumulator) accumulateGauge(metric pmetric.Metric, il pcommon.InstrumentationScope, resourceAttrs pcommon.Map, now time.Time) (n int) {
+	a.logger.Info(fmt.Sprintf("accumulateGauge: %s", metric.Name()))
 	dps := metric.Gauge().DataPoints()
 	for i := 0; i < dps.Len(); i++ {
 		ip := dps.At(i)
@@ -170,15 +173,18 @@ func (a *lastValueAccumulator) accumulateGauge(metric pmetric.Metric, il pcommon
 }
 
 func (a *lastValueAccumulator) accumulateSum(metric pmetric.Metric, il pcommon.InstrumentationScope, resourceAttrs pcommon.Map, now time.Time) (n int) {
+	a.logger.Info(fmt.Sprintf("accumulateSum: %s", metric.Name()))
 	doubleSum := metric.Sum()
 
 	// Drop metrics with unspecified aggregations
 	if doubleSum.AggregationTemporality() == pmetric.MetricAggregationTemporalityUnspecified {
+		a.logger.Info(fmt.Sprintf("line 181, drop metric: %s", metric.Name()))
 		return
 	}
 
 	// Drop non-monotonic and non-cumulative metrics
 	if doubleSum.AggregationTemporality() == pmetric.MetricAggregationTemporalityDelta && !doubleSum.IsMonotonic() {
+		a.logger.Info(fmt.Sprintf("line 187, drop metric: %s", metric.Name()))
 		return
 	}
 
@@ -231,10 +237,12 @@ func (a *lastValueAccumulator) accumulateSum(metric pmetric.Metric, il pcommon.I
 }
 
 func (a *lastValueAccumulator) accumulateDoubleHistogram(metric pmetric.Metric, il pcommon.InstrumentationScope, resourceAttrs pcommon.Map, now time.Time) (n int) {
+	a.logger.Info(fmt.Sprintf("accumulateDoubleHistogram: %s", metric.Name()))
 	doubleHistogram := metric.Histogram()
 
 	// Drop metrics with non-cumulative aggregations
 	if doubleHistogram.AggregationTemporality() != pmetric.MetricAggregationTemporalityCumulative {
+		a.logger.Info(fmt.Sprintf("line 245, drop metric: %s", metric.Name()))
 		return
 	}
 
